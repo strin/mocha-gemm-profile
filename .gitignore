@@ -5,3 +5,4 @@ tags
 *.swp
 *.sqlite
 upload/
+mocha-profile/build
