@@ -6,6 +6,8 @@ else
 fi
 
 adb push mocha-profile/build/gemm $TEST_PATH
+
+adb push clkernel/gemm.cl $TEST_PATH/gemm.cl
 #if [ -z $1 ]
 #then
 #  adb push gemm.cl $TEST_PATH/gemm.cl

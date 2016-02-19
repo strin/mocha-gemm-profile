@@ -15,8 +15,8 @@ public:
     CmdOption<int> iterations;
 
     CmdOption<string> arithmetic;
-        CmdEnum<string> arithmetic_float;
-        CmdEnum<string> arithmetic_double;
+      CmdEnum<string> arithmetic_float;
+      CmdEnum<string> arithmetic_double;
 
     CmdOption<string> kernel;
 
