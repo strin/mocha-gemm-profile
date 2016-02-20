@@ -21,6 +21,7 @@ size_t size_a, size_b, size_c;
 // modules have access to our global variables.
 #include "gemm-gpu.cpp"
 #include "gemm-cpu.cpp"
+#include "gemm-viennacl.cpp"
 
 template <class T>
 bool checkValidity (
@@ -213,6 +214,16 @@ void testGEMMCPU(size_t size_a, size_t size_b, size_t size_c) {
 }
 
 
+template <typename T>
+void testGEMMViennaCL(size_t size_a, size_t size_b, size_t size_c) {
+  test<T>(size_a, size_b, size_c, 
+      Mocha::GEMM_VIENNACL<T>::setup,
+      Mocha::GEMM_VIENNACL<T>::loadMatrix,
+      Mocha::GEMM_VIENNACL<T>::run,
+      Mocha::GEMM_VIENNACL<T>::cleanup);
+}
+
+
 int main(int argc, const char* argv[]) {
   try
   {
@@ -253,6 +264,12 @@ int main(int argc, const char* argv[]) {
         testGEMMCPU<float>(size_a, size_b, size_c);
       }else if(arithmetic == "double") {
         testGEMMCPU<double>(size_a, size_b, size_c);
+      }
+    }else if(architecture == "viennacl") {
+      if(arithmetic == "float") {
+        testGEMMViennaCL<float>(size_a, size_b, size_c);
+      }else if(arithmetic == "double") {
+        testGEMMViennaCL<double>(size_a, size_b, size_c);
       }
     }
 

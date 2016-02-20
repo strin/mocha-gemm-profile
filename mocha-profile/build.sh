@@ -19,6 +19,7 @@ ANDROID_LIB_ROOT=${WD}/lib
 OPENCV_ROOT=${ANDROID_LIB_ROOT}/opencv/sdk/native/jni
 OPENCL_ROOT=${ANDROID_LIB_ROOT}/opencl
 BLAS_ROOT=${ANDROID_LIB_ROOT}/openblas-hard
+VIENNACL_ROOT=${ANDROID_LIB_ROOT}/viennacl-hard
 
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
@@ -33,6 +34,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE="${WD}/android-cmake/android.toolchain.cmake" \
       -DOPENCL_INCLUDES=${OPENCL_ROOT} \
       -DBLAS_LIBS=${BLAS_ROOT}/lib/libopenblas.a \
       -DBLAS_INCLUDES=${BLAS_ROOT} \
+      -DVIENNACL_INCLUDES=${VIENNACL_ROOT} \
       ..
 
 

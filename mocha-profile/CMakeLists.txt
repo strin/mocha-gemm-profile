@@ -15,6 +15,9 @@ if(POLICY CMP0054)
   cmake_policy(SET CMP0054 NEW)
 endif()
 
+
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
+
 # ---[ Caffe project
 project(TestGEMM C CXX)
 
@@ -39,7 +42,8 @@ message("opencl includes " ${OPENCL_INCLUDES})
 message("blas includes " ${BLAS_INCLUDES} "include")
 message("blas libs " ${BLAS_LIBS})
 
-include_directories(${OPENCL_INCLUDES} "utils" "include" "${BLAS_INCLUDES}/include")
+include_directories(${OPENCL_INCLUDES} "utils" "include" 
+  "${BLAS_INCLUDES}/include" "${VIENNACL_INCLUDES}/include")
 
 add_executable(gemm 
   ${PROJECT_SOURCE_DIR}/src/gemm.cpp
@@ -51,6 +55,8 @@ add_executable(gemm
   ${PROJECT_SOURCE_DIR}/utils/yuv_utils.cpp
 
   ${PROJECT_SOURCE_DIR}/src/caffe/math_functions.cpp
+  ${PROJECT_SOURCE_DIR}/src/greentea/greentea.cpp
+  ${PROJECT_SOURCE_DIR}/src/greentea/greentea_math_functions.cpp
 )
 
 target_link_libraries(gemm ${OPENCL_LIBS} ${BLAS_LIBS})
