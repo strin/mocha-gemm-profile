@@ -20,7 +20,7 @@ size_t size_a, size_b, size_c;
 // import modules to be profiled.
 // modules have access to our global variables.
 #include "gemm-gpu.cpp"
-
+#include "gemm-cpu.cpp"
 
 template <class T>
 bool checkValidity (
@@ -203,6 +203,16 @@ void testGEMMGPU(size_t size_a, size_t size_b, size_t size_c) {
 }
 
 
+template <typename T>
+void testGEMMCPU(size_t size_a, size_t size_b, size_t size_c) {
+  test<T>(size_a, size_b, size_c, 
+      Mocha::GEMM_CPU<T>::setup,
+      Mocha::GEMM_CPU<T>::loadMatrix,
+      Mocha::GEMM_CPU<T>::run,
+      Mocha::GEMM_CPU<T>::cleanup);
+}
+
+
 int main(int argc, const char* argv[]) {
   try
   {
@@ -237,6 +247,12 @@ int main(int argc, const char* argv[]) {
         testGEMMGPU<double>(size_a, size_b, size_c);
       }else if(arithmetic == "half") {
         testGEMMGPU<short>(size_a, size_b, size_c); // TODO: support half on host.
+      }
+    }else if(architecture == "cpu") {
+      if(arithmetic == "float") {
+        testGEMMCPU<float>(size_a, size_b, size_c);
+      }else if(arithmetic == "double") {
+        testGEMMCPU<double>(size_a, size_b, size_c);
       }
     }
 

@@ -15,9 +15,10 @@ WD=`pwd`
 N_JOBS=${N_JOBS:-4}
 GEMM_ROOT=${WD}/mocha-profile
 BUILD_DIR=${GEMM_ROOT}/build
-ANDROID_LIB_ROOT=${WD}/
+ANDROID_LIB_ROOT=${WD}/lib
 OPENCV_ROOT=${ANDROID_LIB_ROOT}/opencv/sdk/native/jni
 OPENCL_ROOT=${ANDROID_LIB_ROOT}/opencl
+BLAS_ROOT=${ANDROID_LIB_ROOT}/openblas-hard
 
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}"
@@ -30,6 +31,8 @@ cmake -DCMAKE_TOOLCHAIN_FILE="${WD}/android-cmake/android.toolchain.cmake" \
       -DANDROID_NATIVE_API_LEVEL=21 \
       -DOPENCL_LIBS=${OPENCL_ROOT}/libOpenCL.so \
       -DOPENCL_INCLUDES=${OPENCL_ROOT} \
+      -DBLAS_LIBS=${BLAS_ROOT}/lib/libopenblas.a \
+      -DBLAS_INCLUDES=${BLAS_ROOT} \
       ..
 
 

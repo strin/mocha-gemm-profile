@@ -18,6 +18,13 @@ endif()
 # ---[ Caffe project
 project(TestGEMM C CXX)
 
+find_package(OpenMP)
+if (OPENMP_FOUND)
+  message("OpenMP found")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
+
 # ---[ Flags
 if(UNIX OR APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -w -std=c++11 -DCMAKE_BUILD  -fmax-errors=5")
@@ -28,9 +35,11 @@ if(USE_libstdcpp)
   message("-- Warning: forcing libstdc++ (controlled by USE_libstdcpp option in cmake)")
 endif()
 
-message("opencl includes" ${OPENCL_INCLUDES})
-include_directories(${OPENCL_INCLUDES} "utils")
-include_directories(${OPENCL_INCLUDES} "include")
+message("opencl includes " ${OPENCL_INCLUDES})
+message("blas includes " ${BLAS_INCLUDES} "include")
+message("blas libs " ${BLAS_LIBS})
+
+include_directories(${OPENCL_INCLUDES} "utils" "include" "${BLAS_INCLUDES}/include")
 
 add_executable(gemm 
   ${PROJECT_SOURCE_DIR}/src/gemm.cpp
@@ -40,7 +49,9 @@ add_executable(gemm
   ${PROJECT_SOURCE_DIR}/utils/oclobject.cpp
   ${PROJECT_SOURCE_DIR}/utils/utils.cpp
   ${PROJECT_SOURCE_DIR}/utils/yuv_utils.cpp
+
+  ${PROJECT_SOURCE_DIR}/src/caffe/math_functions.cpp
 )
 
-target_link_libraries(gemm ${OPENCL_LIBS})
+target_link_libraries(gemm ${OPENCL_LIBS} ${BLAS_LIBS})
 
