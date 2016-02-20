@@ -7,7 +7,7 @@ fi
 
 adb push mocha-profile/build/gemm $TEST_PATH
 
-adb push clkernel/gemm.cl $TEST_PATH/gemm.cl
+adb push clkernel/gemm-blocking-2x2-vload4.cl $TEST_PATH/gemm-blocking-2x2-vload4.cl
 #if [ -z $1 ]
 #then
 #  adb push gemm.cl $TEST_PATH/gemm.cl

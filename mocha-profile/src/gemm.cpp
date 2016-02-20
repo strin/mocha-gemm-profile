@@ -220,14 +220,7 @@ int main(int argc, const char* argv[]) {
     
     cout << "[architecture] " << architecture << endl;
     
-    string arithmetic = "";
-    if(cmdparser->arithmetic_float.isSet()) {
-      arithmetic = "float";
-      cout << "[arithmetic] float" << endl;
-    }else if(cmdparser->arithmetic_double.isSet()) {
-      arithmetic = "double";
-      cout << "[arithmetic] double" << endl;
-    }
+    string arithmetic = cmdparser->arithmetic.getValue();
 
     // matrix size parameters.
     size_t size_a = cmdparser->sa.getValue(),
@@ -242,6 +235,8 @@ int main(int argc, const char* argv[]) {
         testGEMMGPU<float>(size_a, size_b, size_c);
       }else if(arithmetic == "double") {
         testGEMMGPU<double>(size_a, size_b, size_c);
+      }else if(arithmetic == "half") {
+        testGEMMGPU<short>(size_a, size_b, size_c); // TODO: support half on host.
       }
     }
 

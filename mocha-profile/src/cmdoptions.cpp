@@ -58,6 +58,7 @@ CmdParserMochaGEMM::CmdParserMochaGEMM (int argc, const char** argv) :
     ),
     arithmetic_float(arithmetic, "float"),
     arithmetic_double(arithmetic, "double"),
+    arithmetic_half(arithmetic, "half"),
     kernel(
         *this,
         0,
@@ -89,22 +90,6 @@ CmdParserMochaGEMM::CmdParserMochaGEMM (int argc, const char** argv) :
 void CmdParserMochaGEMM::parse ()
 {
     CmdParserCommon::parse();
-
-    if(arithmetic_float.isSet() && arithmetic_double.isSet())
-    {
-        throw CmdParser::Error(
-            "Both float and double are chosen. "
-            "Should be only one of them."
-        );
-    }
-
-    if(!arithmetic_float.isSet() && !arithmetic_double.isSet())
-    {
-        throw CmdParser::Error(
-            "Neither float nor double are chosen. "
-            "One of them should be chosen."
-        );
-    }
 }
 
 

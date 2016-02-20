@@ -19,10 +19,33 @@ public:
   static void setup() {
     err = 0;
 
+    string cl_program = cmdparser->cl_program.getValue();
+    string clkernel_path = "clkernel/";
+
+    size_a = cmdparser->sa.getValue();
+    size_b = cmdparser->sb.getValue();
+    size_c = cmdparser->sc.getValue();
+
+    local_size[0] = 16;
+    local_size[1] = 16;
+
+    if(cl_program == "blocking-2-v4") {
+      clkernel_path = "gemm-blocking-2x2-vload4.cl";
+      // set kernel configurations.
+      global_size[0] = size_a / 2;
+      global_size[1] = size_c / 2;
+    }
+
+    cout << "[cl_program] " << clkernel_path << endl;
+
     // build options for opencl.
     string cl_build_options =
         "-DT=" + cmdparser->arithmetic.getValue() +
-        (cmdparser->arithmetic_double.isSet() ? " -DSAMPLE_NEEDS_DOUBLE" : "");
+        " -DT4=" + cmdparser->arithmetic.getValue() + "4" + 
+        " -DT8=" + cmdparser->arithmetic.getValue() + "8" + 
+        " -DT16=" + cmdparser->arithmetic.getValue() + "16" + 
+        " " + (cmdparser->arithmetic_double.isSet() ? " -DSAMPLE_NEEDS_DOUBLE" : "") + 
+        " " + (cmdparser->arithmetic_half.isSet() ? " -DSAMPLE_NEEDS_HALF" : "");
 
     cout << "Build program options: " << inquotes(cl_build_options) << "\n";
 
@@ -33,21 +56,16 @@ public:
             cmdparser->device.getValue()
         );
 
-    string cl_program = cmdparser->cl_program.getValue();
-    wstring cl_program_w;
-    cl_program_w.assign(cl_program.begin(), cl_program.end());
+    wstring clkernel_path_w;
+    clkernel_path_w.assign(clkernel_path.begin(), clkernel_path.end());
 
     executable = std::make_shared<OpenCLProgramOneKernel>(
           *oclobjects,
-          cl_program_w, 
+          clkernel_path_w, 
           "",
           "gemm",
           cl_build_options
         );
-
-    size_a = cmdparser->sa.getValue(),
-    size_b = cmdparser->sb.getValue(),
-    size_c = cmdparser->sc.getValue();
 
     cout
         << "Running gemm: " << cmdparser->kernel.getValue()
@@ -100,13 +118,6 @@ public:
         &err
     );
     SAMPLE_CHECK_ERRORS(err);
-
-    // set kernel configurations.
-    global_size[0] = size_a / 2;
-    global_size[1] = size_c / 2;
-
-    local_size[0] = 16;
-    local_size[1] = 16;
 
     err = clSetKernelArg(executable->kernel, 0, sizeof(cl_mem), &matrix_A.device);
     SAMPLE_CHECK_ERRORS(err);

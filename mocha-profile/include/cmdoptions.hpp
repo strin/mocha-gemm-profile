@@ -17,6 +17,7 @@ public:
     CmdOption<string> arithmetic;
       CmdEnum<string> arithmetic_float;
       CmdEnum<string> arithmetic_double;
+      CmdEnum<string> arithmetic_half;
 
     CmdOption<string> kernel;
 
