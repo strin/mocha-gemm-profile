@@ -79,6 +79,14 @@ CmdParserMochaGEMM::CmdParserMochaGEMM (int argc, const char** argv) :
         "",
         "Enables validation procedure on host (slow for big matrices).",
         false
+    ),
+    output(
+        *this,
+        'o',
+        "output",
+        "",
+        "The file to which output is written.",
+        "result.json"
     )
 {
 }

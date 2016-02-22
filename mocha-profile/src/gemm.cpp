@@ -4,10 +4,12 @@
 #include <limits>
 #include <cmath>
 #include <memory>
+#include <fstream>
 
 #include <CL/cl.h>
 
 #include "cmdoptions.hpp"
+#include "energy.hpp"
 
 using namespace std;
 
@@ -122,12 +124,20 @@ std::tuple<T*, T*, T*> make_matrix(size_t size_a, size_t size_b, size_t size_c) 
   return std::make_tuple(A, B, C);
 }
 
+struct BenchmarkResult {
+  double time;
+  double time_std;
+  double gflops;
+  double gflops_std;
+  double energy;
+};
+
 template <typename T, 
          typename FunctionSetup,
          typename FunctionLoadMatrix,
          typename FunctionRun,
          typename FunctionCleanup>
-void test(size_t size_a, size_t size_b, size_t size_c, 
+BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c, 
     FunctionSetup setup, FunctionLoadMatrix loadMatrix, 
     FunctionRun run, FunctionCleanup cleanup) {
 
@@ -137,8 +147,12 @@ void test(size_t size_a, size_t size_b, size_t size_c,
   );
 
   setup();
+ 
+  vector<double> times, gflops;
 
-  for(int i = 0; i < cmdparser->iterations.getValue(); ++i)
+  size_t num_iter = cmdparser->iterations.getValue();
+
+  for(int i = 0; i < num_iter; ++i)
   {
       // Here we start measuring host time for kernel execution
       double start, end, time;
@@ -169,6 +183,9 @@ void test(size_t size_a, size_t size_b, size_t size_c,
         cout << "[Device] GEMM perf: " << flops/device_time/1e9 << " GFLOPS\n";
       }
 
+      times.push_back(time);
+      gflops.push_back(flops / time / 1e9);
+
       cout.flush();
 
       if(i == 0 && cmdparser->validation.getValue())
@@ -191,42 +208,78 @@ void test(size_t size_a, size_t size_b, size_t size_c,
       }
 
       cleanup();
+      delete[] matrix_A;
+      delete[] matrix_B;
+      delete[] matrix_C;
   }
+
+  BenchmarkResult result;
+  
+  result.time_std = 0.;
+  result.time = 0.;
+  result.gflops = 0.;
+  result.gflops_std = 0.;
+
+  for(auto time : times) {
+    result.time += time;
+  }
+  result.time /= num_iter;
+
+  for(auto time : times) {
+    result.time_std += (time - result.time) * (time - result.time);
+  }
+  result.time_std /= (num_iter - 1);
+  result.time_std = sqrt(result.time_std);
+
+  for(auto gf: gflops) {
+    result.gflops += gf;
+  }
+  result.gflops /= num_iter;
+
+  for(auto gf: gflops) {
+    result.gflops_std = (gf - result.gflops) * (gf - result.gflops);
+  }
+  result.gflops_std /= (num_iter - 1);
+  result.gflops_std = sqrt(result.gflops_std);
+  
+  return result;
 }
 
 template <typename T>
-void testGEMMGPU(size_t size_a, size_t size_b, size_t size_c) {
-  test<T>(size_a, size_b, size_c, 
-      Mocha::GEMM_GPU<T>::setup,
-      Mocha::GEMM_GPU<T>::loadMatrix,
-      Mocha::GEMM_GPU<T>::run,
-      Mocha::GEMM_GPU<T>::cleanup);
+BenchmarkResult testGEMMGPU(size_t size_a, size_t size_b, size_t size_c) {
+  return test<T>(size_a, size_b, size_c, 
+            Mocha::GEMM_GPU<T>::setup,
+            Mocha::GEMM_GPU<T>::loadMatrix,
+            Mocha::GEMM_GPU<T>::run,
+            Mocha::GEMM_GPU<T>::cleanup);
 }
 
 
 template <typename T>
-void testGEMMCPU(size_t size_a, size_t size_b, size_t size_c) {
-  test<T>(size_a, size_b, size_c, 
-      Mocha::GEMM_CPU<T>::setup,
-      Mocha::GEMM_CPU<T>::loadMatrix,
-      Mocha::GEMM_CPU<T>::run,
-      Mocha::GEMM_CPU<T>::cleanup);
+BenchmarkResult testGEMMCPU(size_t size_a, size_t size_b, size_t size_c) {
+  return test<T>(size_a, size_b, size_c, 
+            Mocha::GEMM_CPU<T>::setup,
+            Mocha::GEMM_CPU<T>::loadMatrix,
+            Mocha::GEMM_CPU<T>::run,
+            Mocha::GEMM_CPU<T>::cleanup);
 }
 
 
 template <typename T>
-void testGEMMViennaCL(size_t size_a, size_t size_b, size_t size_c) {
-  test<T>(size_a, size_b, size_c, 
-      Mocha::GEMM_VIENNACL<T>::setup,
-      Mocha::GEMM_VIENNACL<T>::loadMatrix,
-      Mocha::GEMM_VIENNACL<T>::run,
-      Mocha::GEMM_VIENNACL<T>::cleanup);
+BenchmarkResult testGEMMViennaCL(size_t size_a, size_t size_b, size_t size_c) {
+  return test<T>(size_a, size_b, size_c, 
+            Mocha::GEMM_VIENNACL<T>::setup,
+            Mocha::GEMM_VIENNACL<T>::loadMatrix,
+            Mocha::GEMM_VIENNACL<T>::run,
+            Mocha::GEMM_VIENNACL<T>::cleanup);
 }
 
 
 int main(int argc, const char* argv[]) {
   try
   {
+    std::pair<double, double> first_time_energy = Mocha::getCurrentEnergy();
+
     // Define and parse command-line arguments.
     cmdparser = std::make_shared<CmdParserMochaGEMM>(argc, argv);
     cmdparser->parse();
@@ -251,27 +304,64 @@ int main(int argc, const char* argv[]) {
     cout << "[matrix size] " << size_a << " " 
       << size_b << " " << size_c << endl;
 
+    // benchmark time and gflops. 
+    BenchmarkResult result;
     if(architecture == "gpu") {
       if(arithmetic == "float") {
-        testGEMMGPU<float>(size_a, size_b, size_c);
+        result = testGEMMGPU<float>(size_a, size_b, size_c);
       }else if(arithmetic == "double") {
-        testGEMMGPU<double>(size_a, size_b, size_c);
+        result = testGEMMGPU<double>(size_a, size_b, size_c);
       }else if(arithmetic == "half") {
-        testGEMMGPU<short>(size_a, size_b, size_c); // TODO: support half on host.
+        result = testGEMMGPU<short>(size_a, size_b, size_c); // TODO: support half on host.
       }
     }else if(architecture == "cpu") {
       if(arithmetic == "float") {
-        testGEMMCPU<float>(size_a, size_b, size_c);
+        result = testGEMMCPU<float>(size_a, size_b, size_c);
       }else if(arithmetic == "double") {
-        testGEMMCPU<double>(size_a, size_b, size_c);
+        result = testGEMMCPU<double>(size_a, size_b, size_c);
       }
     }else if(architecture == "viennacl") {
       if(arithmetic == "float") {
-        testGEMMViennaCL<float>(size_a, size_b, size_c);
+        result = testGEMMViennaCL<float>(size_a, size_b, size_c);
       }else if(arithmetic == "double") {
-        testGEMMViennaCL<double>(size_a, size_b, size_c);
+        result = testGEMMViennaCL<double>(size_a, size_b, size_c);
       }
     }
+
+    // benchmark energy.
+    std::pair<double, double> last_time_energy = Mocha::getCurrentEnergy();
+    result.energy = (last_time_energy.second - first_time_energy.second) 
+                        / (last_time_energy.first - first_time_energy.first);
+
+    // output benchmark result.
+    cout << "----------------Benchmark Results------------------" << endl;
+    cout << "average energy = " << result.energy << endl;
+    cout << "average time = " << result.time << endl;
+    cout << "average gflops = " << result.gflops << endl;
+
+    // write output to json.
+    std::string output_filename = cmdparser->output.getValue();
+    std::fstream output(output_filename, std::fstream::out);
+    output << "{" << endl;
+    output << "\t\"params\": {" << endl;
+    output << "\t\t\"sa\": " << cmdparser->sa.getValue() << "," << endl;
+    output << "\t\t\"sb\": " << cmdparser->sb.getValue() << "," << endl;
+    output << "\t\t\"sc\": " << cmdparser->sc.getValue() << "," << endl;
+    if(architecture == "gpu") {
+      output << "\t\t\"cl_program\": \"" << cmdparser->cl_program.getValue() << "\"," << endl;
+    }
+    output << "\t\t\"arch\": \"" << cmdparser->architecture.getValue() << "\"" << endl;
+    output << "\t}," << endl;
+    output << "\t\"energy\": " << result.energy << "," << endl;
+    output << "\t\"time\": " << result.time << "," << endl;
+    output << "\t\"gflops\": " << result.gflops << "," << endl;
+    output << "\t\"time_std\": " << result.time_std << "," << endl;
+    output << "\t\"gflops_std\": " << result.gflops_std << endl;
+    output << "}" << endl;
+    output.close();
+
+    // tell PIPE that I'm done.
+    cout << "[done]" << endl;
 
   }
   catch(const CmdParser::Error& error)

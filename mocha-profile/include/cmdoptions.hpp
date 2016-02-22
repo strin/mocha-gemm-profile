@@ -21,6 +21,8 @@ public:
 
     CmdOption<string> kernel;
 
+    CmdOption<string> output;
+
     CmdOption<bool> validation;
 
     CmdParserMochaGEMM (int argc, const char** argv);
