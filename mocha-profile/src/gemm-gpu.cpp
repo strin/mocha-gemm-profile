@@ -34,6 +34,14 @@ public:
       // set kernel configurations.
       global_size[0] = size_a / 2;
       global_size[1] = size_c / 2;
+    }else if(cl_program == "blocking-4-v4") {
+      clkernel_path = "gemm-blocking-4x4-vload4.cl";
+      global_size[0] = size_a / 4;
+      global_size[1] = size_c / 4;
+    }else if(cl_program == "noblock-v8") {
+      clkernel_path = "gemm-noblock-vload8.cl";
+      global_size[0] = size_a;
+      global_size[1] = size_c;
     }
 
     cout << "[cl_program] " << clkernel_path << endl;
