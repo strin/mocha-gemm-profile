@@ -23,7 +23,7 @@ public:
   
   static void run() {
     caffe::caffe_cpu_gemm<T>(CblasNoTrans, CblasNoTrans, 
-        size_a, size_b, size_c,
+        size_a, size_c, size_b,
         1.0, matrix_A, matrix_B, 0., matrix_C);
   }
 
