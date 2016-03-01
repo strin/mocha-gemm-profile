@@ -1,3 +1,10 @@
+#ifdef SAMPLE_NEEDS_DOUBLE
+    #pragma OPENCL EXTENSION cl_khr_fp64: enable
+#endif
+#ifdef SAMPLE_NEEDS_HALF
+    #pragma OPENCL EXTENSION cl_khr_fp16: enable
+#endif
+
 __kernel void gemm (
     __global const T * restrict A,
     __global const T * restrict B,
@@ -27,8 +34,8 @@ __kernel void gemm (
         B += 4;
     }
 
-    vstore4(sum.lo.lo, 0, &C[i * size_b + j]);
-    vstore4(sum.lo.hi, 0, &C[(i + 1) * size_b + j]);
-    vstore4(sum.hi.lo, 0, &C[(i + 2) * size_b + j]);
-    vstore4(sum.hi.hi, 0, &C[(i + 3) * size_b + j]);
+    vstore4(sum.lo.lo, 0, &C[i * size_c + j]);
+    vstore4(sum.lo.hi, 0, &C[(i + 1) * size_c + j]);
+    vstore4(sum.hi.lo, 0, &C[(i + 2) * size_c + j]);
+    vstore4(sum.hi.hi, 0, &C[(i + 3) * size_c + j]);
 }

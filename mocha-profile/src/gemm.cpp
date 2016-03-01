@@ -95,7 +95,7 @@ bool checkValidity (
 template <typename T>
 std::tuple<T*, T*, T*> make_matrix(size_t size_a, size_t size_b, size_t size_c) {
   size_t mem_size_a = size_a * size_b * sizeof(T);
-  size_t mem_size_b = size_c * size_c * sizeof(T);
+  size_t mem_size_b = size_b * size_c * sizeof(T);
   size_t mem_size_c = size_a * size_c * sizeof(T);
 
   T* A = (T*) new char[mem_size_a];
@@ -115,7 +115,7 @@ std::tuple<T*, T*, T*> make_matrix(size_t size_a, size_t size_b, size_t size_c) 
   }
 
   for(size_t i = 0; i < size_b; ++i) {
-    T* row_B = B + i * size_b;
+    T* row_B = B + i * size_c;
 
     // Fill the rows with random values from range [0, 1]
     fill_rand_uniform_01(row_B, size_c);
@@ -344,6 +344,7 @@ int main(int argc, const char* argv[]) {
     std::fstream output(output_filename, std::fstream::out);
     output << "{" << endl;
     output << "\t\"params\": {" << endl;
+    output << "\t\t\"arithmetic\": \"" << cmdparser->arithmetic.getValue() << "\"," << endl;
     output << "\t\t\"sa\": " << cmdparser->sa.getValue() << "," << endl;
     output << "\t\t\"sb\": " << cmdparser->sb.getValue() << "," << endl;
     output << "\t\t\"sc\": " << cmdparser->sc.getValue() << "," << endl;
