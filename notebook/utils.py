@@ -19,7 +19,7 @@ def save(global_results, result):
     params = result['params']
     cl_program = 'none' if 'cl_program' not in params else params['cl_program']
     key = (params['sa'], params['sb'], params['sc'], params['arch'],
-           cl_program)
+           cl_program, params['arithmetic'])
     print key
     global_results[key] = result
 
@@ -98,9 +98,9 @@ def plot_bar(xs, ys, names, xlabel='x', ylabel='y', title=''):
 
     traces = []
 
-    for (y, name) in zip(ys, names):
+    for (x, y, name) in zip(xs, ys, names):
         trace = go.Bar(
-            x = xs,
+            x = x,
             y = y,
             name = name
         )
@@ -108,4 +108,4 @@ def plot_bar(xs, ys, names, xlabel='x', ylabel='y', title=''):
 
     data = traces
     fig = go.Figure(data=data, layout=layout)
-    disp = iplot(fig, filename='mocha-gauge-caffe-plotbar-' + datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000'))
+    disp = iplot(fig)
