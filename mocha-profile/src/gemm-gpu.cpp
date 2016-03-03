@@ -158,7 +158,10 @@ public:
 
     err = clFinish(oclobjects->queue);
     SAMPLE_CHECK_ERRORS(err);
+  }
+  
 
+  static void loadResult() {
     clEnqueueMapBuffer(
         oclobjects->queue,
         matrix_C.device,

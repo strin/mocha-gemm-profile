@@ -130,16 +130,18 @@ struct BenchmarkResult {
   double gflops;
   double gflops_std;
   double energy;
+  double power;
 };
 
 template <typename T, 
          typename FunctionSetup,
          typename FunctionLoadMatrix,
          typename FunctionRun,
+         typename FunctionLoadResult,
          typename FunctionCleanup>
 BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c, 
     FunctionSetup setup, FunctionLoadMatrix loadMatrix, 
-    FunctionRun run, FunctionCleanup cleanup) {
+    FunctionRun run, FunctionLoadResult loadResult, FunctionCleanup cleanup) {
 
   double flops = double(size_a)* size_c * (
       size_b + // multiplications
@@ -170,24 +172,29 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
 
       // start computation.
       start = time_stamp();
-      run();
+      if(!cmdparser->baseline.getValue()) {
+        run();
+      }
       end = time_stamp();
       time = end - start;
       cout << "[Host] GEMM: " << time << " sec.\n";
       cout << "[Host] GEMM perf: " << flops/time/1e9 << " GFLOPS\n";
 
 
-      if(cmdparser->architecture.getValue() == "gpu") {
+      if(cmdparser->architecture.getValue() == "gpu") {  // use device time profile.
         double device_time = Mocha::GEMM_GPU<T>::getDeviceTime() / 1e9;
         cout << "[Device] GEMM: " << device_time << " sec.\n";
         cout << "[Device] GEMM perf: " << flops/device_time/1e9 << " GFLOPS\n";
+        times.push_back(device_time);
+        gflops.push_back(flops / device_time / 1e9);
+      }else{
+        times.push_back(time);
+        gflops.push_back(flops / time / 1e9);
       }
-
-      times.push_back(time);
-      gflops.push_back(flops / time / 1e9);
 
       cout.flush();
 
+      loadResult();
       if(i == 0 && cmdparser->validation.getValue())
       {
          if(
@@ -245,12 +252,17 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
   return result;
 }
 
+void doNothing() {
+
+}
+
 template <typename T>
 BenchmarkResult testGEMMGPU(size_t size_a, size_t size_b, size_t size_c) {
   return test<T>(size_a, size_b, size_c, 
             Mocha::GEMM_GPU<T>::setup,
             Mocha::GEMM_GPU<T>::loadMatrix,
             Mocha::GEMM_GPU<T>::run,
+            Mocha::GEMM_GPU<T>::loadResult,
             Mocha::GEMM_GPU<T>::cleanup);
 }
 
@@ -261,6 +273,7 @@ BenchmarkResult testGEMMCPU(size_t size_a, size_t size_b, size_t size_c) {
             Mocha::GEMM_CPU<T>::setup,
             Mocha::GEMM_CPU<T>::loadMatrix,
             Mocha::GEMM_CPU<T>::run,
+            doNothing,
             Mocha::GEMM_CPU<T>::cleanup);
 }
 
@@ -271,6 +284,7 @@ BenchmarkResult testGEMMViennaCL(size_t size_a, size_t size_b, size_t size_c) {
             Mocha::GEMM_VIENNACL<T>::setup,
             Mocha::GEMM_VIENNACL<T>::loadMatrix,
             Mocha::GEMM_VIENNACL<T>::run,
+            Mocha::GEMM_VIENNACL<T>::loadResult,
             Mocha::GEMM_VIENNACL<T>::cleanup);
 }
 
@@ -293,6 +307,10 @@ int main(int argc, const char* argv[]) {
     string architecture = cmdparser->architecture.getValue();
     
     cout << "[architecture] " << architecture << endl;
+
+    if(cmdparser->baseline.getValue()) {
+      cout << "[baseline] running" << endl;
+    }
     
     string arithmetic = cmdparser->arithmetic.getValue();
 
@@ -329,8 +347,11 @@ int main(int argc, const char* argv[]) {
     }
 
     // benchmark energy.
+    size_t num_iter = cmdparser->iterations.getValue();
     std::pair<double, double> last_time_energy = Mocha::getCurrentEnergy();
     result.energy = (last_time_energy.second - first_time_energy.second) 
+                        / (double)(num_iter);
+    result.power = (last_time_energy.second - first_time_energy.second) 
                         / (last_time_energy.first - first_time_energy.first);
 
     // output benchmark result.
@@ -354,6 +375,7 @@ int main(int argc, const char* argv[]) {
     output << "\t\t\"arch\": \"" << cmdparser->architecture.getValue() << "\"" << endl;
     output << "\t}," << endl;
     output << "\t\"energy\": " << result.energy << "," << endl;
+    output << "\t\"power\": " << result.power << "," << endl;
     output << "\t\"time\": " << result.time << "," << endl;
     output << "\t\"gflops\": " << result.gflops << "," << endl;
     output << "\t\"time_std\": " << result.time_std << "," << endl;

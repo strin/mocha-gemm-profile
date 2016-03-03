@@ -87,6 +87,14 @@ CmdParserMochaGEMM::CmdParserMochaGEMM (int argc, const char** argv) :
         "",
         "The file to which output is written.",
         "result.json"
+    ),
+    baseline(
+        *this,
+        0,
+        "baseline",
+        "",
+        "whether run baseline without any computation",
+        false
     )
 {
 }

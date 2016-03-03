@@ -25,6 +25,8 @@ public:
 
     CmdOption<bool> validation;
 
+    CmdOption<bool> baseline;
+
     CmdParserMochaGEMM (int argc, const char** argv);
 
     virtual void parse ();

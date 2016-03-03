@@ -94,6 +94,10 @@ public:
         matrix_C.device, 0
       );
 
+  }
+
+
+  static void loadResult() {
     clEnqueueMapBuffer(
         viennacl::ocl::current_context().get_queue().handle().get(),
         matrix_C.device,
