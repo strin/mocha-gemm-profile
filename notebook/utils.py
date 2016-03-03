@@ -6,25 +6,6 @@ import dill as pickle
 
 init_notebook_mode() # run at the start of every ipython notebook to use plotly.offline
                      # this injects the plotly.js source files into the notebook
-def load():
-    try:
-        with open('result.global', 'r') as f:
-            global_results = pickle.load(f)
-    except IOError:
-        global_results = {}
-    return global_results
-
-
-def save(global_results, result):
-    params = result['params']
-    cl_program = 'none' if 'cl_program' not in params else params['cl_program']
-    key = (params['sa'], params['sb'], params['sc'], params['arch'],
-           cl_program, params['arithmetic'])
-    print key
-    global_results[key] = result
-
-    with open('result.global', 'w') as f:
-        pickle.dump(global_results, f)
 
 
 def plot_xy(x, y, names=None, xlabel='x', ylabel='y', title=''):

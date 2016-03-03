@@ -5,6 +5,7 @@
 #include <cmath>
 #include <memory>
 #include <fstream>
+#include <unistd.h>
 
 #include <CL/cl.h>
 
@@ -154,73 +155,116 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
 
   size_t num_iter = cmdparser->iterations.getValue();
 
-  for(int i = 0; i < num_iter; ++i)
-  {
-      // Here we start measuring host time for kernel execution
-      double start, end, time;
-      auto ABC = make_matrix<T>(size_a, size_b, size_c);
-      T* matrix_A = get<0>(ABC);
-      T* matrix_B = get<1>(ABC);
-      T* matrix_C = get<2>(ABC);
-
-      // load matrix onto device memory.
-      start = time_stamp();
-      loadMatrix(matrix_A, matrix_B, matrix_C);
-      end = time_stamp();
-      time = end - start;
-      cout << "[Host] load matrix: " << time << " sec.\n";
-
-      // start computation.
-      start = time_stamp();
-      if(!cmdparser->baseline.getValue()) {
-        run();
-      }
-      end = time_stamp();
-      time = end - start;
-      cout << "[Host] GEMM: " << time << " sec.\n";
-      cout << "[Host] GEMM perf: " << flops/time/1e9 << " GFLOPS\n";
-
-
-      if(cmdparser->architecture.getValue() == "gpu") {  // use device time profile.
-        double device_time = Mocha::GEMM_GPU<T>::getDeviceTime() / 1e9;
-        cout << "[Device] GEMM: " << device_time << " sec.\n";
-        cout << "[Device] GEMM perf: " << flops/device_time/1e9 << " GFLOPS\n";
-        times.push_back(device_time);
-        gflops.push_back(flops / device_time / 1e9);
-      }else{
-        times.push_back(time);
-        gflops.push_back(flops / time / 1e9);
-      }
-
-      cout.flush();
-
-      loadResult();
-      if(i == 0 && cmdparser->validation.getValue())
-      {
-         if(
-              !checkValidity(
-                  matrix_A,
-                  matrix_B,
-                  matrix_C,
-                  size_a,
-                  size_b,
-                  size_c
-              )
-          )
-          {
-              throw Error("Validation procedure reported failures");
-          }
-
-          cout.flush();
-      }
-
-      cleanup();
-      delete[] matrix_A;
-      delete[] matrix_B;
-      delete[] matrix_C;
-  }
+  // for accurate energy gauge. 
+  // we set energy = total_energy - baseline_energy.
+  //    total_energy is the energy for making, loading matrix, run, etc.
+  //    baseline_energy is the energy cost for everything except run.
 
   BenchmarkResult result;
+  double baseline_energy = 0.0;
+
+  for(int baseline = 1; baseline >= 0; baseline--) { 
+    std::pair<double, double> first_time_energy = Mocha::getCurrentEnergy();
+
+    if(baseline) {
+      cout << "[benchmark] running baseline" << endl;
+    }else{
+      cout << "[benchmark] running benchmark" << endl;
+    }
+
+    double total_start, total_end, total_time;
+    total_start = time_stamp();
+
+    for(int i = 0; i < num_iter; ++i)
+    {
+        // Here we start measuring host time for kernel execution
+        double start, end, time;
+        auto ABC = make_matrix<T>(size_a, size_b, size_c);
+        T* matrix_A = get<0>(ABC);
+        T* matrix_B = get<1>(ABC);
+        T* matrix_C = get<2>(ABC);
+
+        // load matrix onto device memory.
+        start = time_stamp();
+        loadMatrix(matrix_A, matrix_B, matrix_C);
+        end = time_stamp();
+        time = end - start;
+        cout << "[Host] load matrix: " << time << " sec.\n";
+
+        // start computation.
+        start = time_stamp();
+        if(!baseline) {
+          run();
+
+          end = time_stamp();
+          time = end - start;
+          cout << "[Host] GEMM: " << time << " sec.\n";
+          cout << "[Host] GEMM perf: " << flops/time/1e9 << " GFLOPS\n";
+
+
+          if(cmdparser->architecture.getValue() == "gpu") {  // use device time profile.
+            double device_time = Mocha::GEMM_GPU<T>::getDeviceTime() / 1e9;
+            cout << "[Device] GEMM: " << device_time << " sec.\n";
+            cout << "[Device] GEMM perf: " << flops/device_time/1e9 << " GFLOPS\n";
+            times.push_back(device_time);
+            gflops.push_back(flops / device_time / 1e9);
+          }else{
+            times.push_back(time);
+            gflops.push_back(flops / time / 1e9);
+          }
+        }
+
+        cout.flush();
+
+        loadResult();
+        if(i == 0 && baseline && cmdparser->validation.getValue())
+        {
+           if(
+                !checkValidity(
+                    matrix_A,
+                    matrix_B,
+                    matrix_C,
+                    size_a,
+                    size_b,
+                    size_c
+                )
+            )
+            {
+                throw Error("Validation procedure reported failures");
+            }
+
+            cout.flush();
+        }
+
+        cleanup();
+        delete[] matrix_A;
+        delete[] matrix_B;
+        delete[] matrix_C;
+    }
+
+    total_end = time_stamp();
+    total_time = total_end - total_start;
+
+    // the energy profiler process runs at 1 sec interval.
+    // we need to wait for a moment of quiescence.
+    cout << "[sleep] wait for energy profile" << endl;
+    sleep(2); 
+
+    // benchmark energy.
+    std::pair<double, double> last_time_energy = Mocha::getCurrentEnergy();
+
+    double energy = (last_time_energy.second - first_time_energy.second) / (double)(num_iter);
+    if(baseline) {
+      baseline_energy = energy;
+      cout << "[benchmark] baseline energy = " << baseline_energy << endl;
+    }else{
+      result.energy = energy - baseline_energy;
+      cout << "[benchmark] total energy = " << baseline_energy << endl;
+      result.power = result.energy * (double)num_iter / total_time;
+
+      cout << "[benchmark] total power = " << result.power << endl;
+    }
+  }
   
   result.time_std = 0.;
   result.time = 0.;
@@ -292,8 +336,6 @@ BenchmarkResult testGEMMViennaCL(size_t size_a, size_t size_b, size_t size_c) {
 int main(int argc, const char* argv[]) {
   try
   {
-    std::pair<double, double> first_time_energy = Mocha::getCurrentEnergy();
-
     // Define and parse command-line arguments.
     cmdparser = std::make_shared<CmdParserMochaGEMM>(argc, argv);
     cmdparser->parse();
@@ -346,13 +388,6 @@ int main(int argc, const char* argv[]) {
       }
     }
 
-    // benchmark energy.
-    size_t num_iter = cmdparser->iterations.getValue();
-    std::pair<double, double> last_time_energy = Mocha::getCurrentEnergy();
-    result.energy = (last_time_energy.second - first_time_energy.second) 
-                        / (double)(num_iter);
-    result.power = (last_time_energy.second - first_time_energy.second) 
-                        / (last_time_energy.first - first_time_energy.first);
 
     // output benchmark result.
     cout << "----------------Benchmark Results------------------" << endl;
