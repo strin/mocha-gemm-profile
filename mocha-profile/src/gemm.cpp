@@ -236,7 +236,6 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
             cout.flush();
         }
 
-        cleanup();
         delete[] matrix_A;
         delete[] matrix_B;
         delete[] matrix_C;
@@ -266,6 +265,7 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
     }
   }
   
+  cleanup();
   result.time_std = 0.;
   result.time = 0.;
   result.gflops = 0.;

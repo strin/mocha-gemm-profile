@@ -13,21 +13,28 @@ public:
     size_a = cmdparser->sa.getValue();
     size_b = cmdparser->sb.getValue();
     size_c = cmdparser->sc.getValue();
+    matrix_B = new T[size_c * size_b];
   }
 
   static void loadMatrix(T* A, T* B, T* C) {
     matrix_A = A;
-    matrix_B = B;
+    // transpose the matrix.
+    for(size_t c = 0; c < size_c; c++) {
+      for(size_t b = 0; b < size_b; b++) {
+        matrix_B[c * size_b + b] = B[b * size_c + c];
+      }
+    }
     matrix_C = C;
   }
   
   static void run() {
-    caffe::caffe_cpu_gemm<T>(CblasNoTrans, CblasNoTrans, 
+    caffe::caffe_cpu_gemm<T>(CblasNoTrans, CblasTrans, 
         size_a, size_c, size_b,
         1.0, matrix_A, matrix_B, 0., matrix_C);
   }
 
   static void cleanup() {
+    delete[] matrix_B;
   }
 };
 
