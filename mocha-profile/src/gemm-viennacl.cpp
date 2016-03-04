@@ -84,16 +84,17 @@ public:
   }
 
 
-  static void run() {
-    caffe::greentea_gpu_gemm<T>(
-        0, CblasNoTrans, CblasNoTrans,
-        size_a, size_c, size_b, 1., 
-        matrix_A.device, 0,
-        matrix_B.device, 0,
-        0.,
-        matrix_C.device, 0
-      );
-
+  static void run(int num_iter = 1) {
+    for(int i = 0; i < num_iter; i++) {
+      caffe::greentea_gpu_gemm<T>(
+          0, CblasNoTrans, CblasNoTrans,
+          size_a, size_c, size_b, 1., 
+          matrix_A.device, 0,
+          matrix_B.device, 0,
+          0.,
+          matrix_C.device, 0
+        );
+    }
   }
 
 

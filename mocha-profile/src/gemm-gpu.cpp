@@ -139,22 +139,27 @@ public:
     SAMPLE_CHECK_ERRORS(err);
     err = clSetKernelArg(executable->kernel, 5, sizeof(cl_int), &size_c);
     SAMPLE_CHECK_ERRORS(err);
+
+    err = clFinish(oclobjects->queue);
+    SAMPLE_CHECK_ERRORS(err);
   }
 
 
-  static void run() {
+  static void run(int num_iter) {
     // start execution.
     event = 0;
-    err = clEnqueueNDRangeKernel(
-        oclobjects->queue,
-        executable->kernel,
-        2,
-        0,
-        global_size,
-        local_size,
-        0, 0, &event
-    );
-    SAMPLE_CHECK_ERRORS(err);
+    for(int i = 0; i < num_iter; i++) {
+      err = clEnqueueNDRangeKernel(
+          oclobjects->queue,
+          executable->kernel,
+          2,
+          0,
+          global_size,
+          local_size,
+          0, 0, &event
+      );
+      SAMPLE_CHECK_ERRORS(err);
+    }
 
     err = clFinish(oclobjects->queue);
     SAMPLE_CHECK_ERRORS(err);

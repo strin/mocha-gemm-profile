@@ -127,9 +127,7 @@ std::tuple<T*, T*, T*> make_matrix(size_t size_a, size_t size_b, size_t size_c) 
 
 struct BenchmarkResult {
   double time;
-  double time_std;
   double gflops;
-  double gflops_std;
   double energy;
   double power;
 };
@@ -175,71 +173,69 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
     double total_start, total_end, total_time;
     total_start = time_stamp();
 
-    for(int i = 0; i < num_iter; ++i)
+    // Here we start measuring host time for kernel execution
+    double start, end, time;
+    auto ABC = make_matrix<T>(size_a, size_b, size_c);
+    T* matrix_A = get<0>(ABC);
+    T* matrix_B = get<1>(ABC);
+    T* matrix_C = get<2>(ABC);
+
+    // load matrix onto device memory.
+    start = time_stamp();
+    loadMatrix(matrix_A, matrix_B, matrix_C);
+    end = time_stamp();
+    time = (end - start) / num_iter;
+    cout << "[Host] load matrix: " << time << " sec.\n";
+
+    // start computation.
+    if(!baseline) {
+      start = time_stamp();
+      run(num_iter);
+      end = time_stamp();
+      time = (end - start) / num_iter;
+      cout << "[Host] GEMM: " << time << " sec.\n";
+      cout << "[Host] GEMM perf: " << flops/time/1e9 << " GFLOPS\n";
+
+
+      if(cmdparser->architecture.getValue() == "gpu") {  // use device time profile.
+        double device_time = Mocha::GEMM_GPU<T>::getDeviceTime() / 1e9;
+        cout << "[Device] GEMM: " << device_time << " sec.\n";
+        cout << "[Device] GEMM perf: " << flops/device_time/1e9 << " GFLOPS\n";
+        times.push_back(time);
+        gflops.push_back(flops / time / 1e9);
+        // times.push_back(device_time);
+        // gflops.push_back(flops / device_time / 1e9);
+      }else{
+        times.push_back(time);
+        gflops.push_back(flops / time / 1e9);
+      }
+    }
+
+    cout.flush();
+
+    loadResult();
+    if(baseline && cmdparser->validation.getValue())
     {
-        // Here we start measuring host time for kernel execution
-        double start, end, time;
-        auto ABC = make_matrix<T>(size_a, size_b, size_c);
-        T* matrix_A = get<0>(ABC);
-        T* matrix_B = get<1>(ABC);
-        T* matrix_C = get<2>(ABC);
-
-        // load matrix onto device memory.
-        start = time_stamp();
-        loadMatrix(matrix_A, matrix_B, matrix_C);
-        end = time_stamp();
-        time = end - start;
-        cout << "[Host] load matrix: " << time << " sec.\n";
-
-        // start computation.
-        start = time_stamp();
-        if(!baseline) {
-          run();
-
-          end = time_stamp();
-          time = end - start;
-          cout << "[Host] GEMM: " << time << " sec.\n";
-          cout << "[Host] GEMM perf: " << flops/time/1e9 << " GFLOPS\n";
-
-
-          if(cmdparser->architecture.getValue() == "gpu") {  // use device time profile.
-            double device_time = Mocha::GEMM_GPU<T>::getDeviceTime() / 1e9;
-            cout << "[Device] GEMM: " << device_time << " sec.\n";
-            cout << "[Device] GEMM perf: " << flops/device_time/1e9 << " GFLOPS\n";
-            times.push_back(device_time);
-            gflops.push_back(flops / device_time / 1e9);
-          }else{
-            times.push_back(time);
-            gflops.push_back(flops / time / 1e9);
-          }
+       if(
+            !checkValidity(
+                matrix_A,
+                matrix_B,
+                matrix_C,
+                size_a,
+                size_b,
+                size_c
+            )
+        )
+        {
+            throw Error("Validation procedure reported failures");
         }
 
         cout.flush();
-
-        loadResult();
-        if(i == 0 && baseline && cmdparser->validation.getValue())
-        {
-           if(
-                !checkValidity(
-                    matrix_A,
-                    matrix_B,
-                    matrix_C,
-                    size_a,
-                    size_b,
-                    size_c
-                )
-            )
-            {
-                throw Error("Validation procedure reported failures");
-            }
-
-            cout.flush();
-        }
-
-        delete[] matrix_A;
-        delete[] matrix_B;
-        delete[] matrix_C;
     }
+
+    delete[] matrix_A;
+    delete[] matrix_B;
+    delete[] matrix_C;
 
     total_end = time_stamp();
     total_time = total_end - total_start;
@@ -258,7 +254,7 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
       cout << "[benchmark] baseline energy = " << baseline_energy << endl;
     }else{
       result.energy = energy - baseline_energy;
-      cout << "[benchmark] total energy = " << baseline_energy << endl;
+      cout << "[benchmark] total energy = " << result.energy << endl;
       result.power = result.energy * (double)num_iter / total_time;
 
       cout << "[benchmark] total power = " << result.power << endl;
@@ -266,32 +262,18 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
   }
   
   cleanup();
-  result.time_std = 0.;
   result.time = 0.;
   result.gflops = 0.;
-  result.gflops_std = 0.;
 
   for(auto time : times) {
     result.time += time;
   }
-  result.time /= num_iter;
-
-  for(auto time : times) {
-    result.time_std += (time - result.time) * (time - result.time);
-  }
-  result.time_std /= (num_iter - 1);
-  result.time_std = sqrt(result.time_std);
+  result.time /= times.size();
 
   for(auto gf: gflops) {
     result.gflops += gf;
   }
-  result.gflops /= num_iter;
-
-  for(auto gf: gflops) {
-    result.gflops_std = (gf - result.gflops) * (gf - result.gflops);
-  }
-  result.gflops_std /= (num_iter - 1);
-  result.gflops_std = sqrt(result.gflops_std);
+  result.gflops /= gflops.size();
   
   return result;
 }
@@ -412,9 +394,7 @@ int main(int argc, const char* argv[]) {
     output << "\t\"energy\": " << result.energy << "," << endl;
     output << "\t\"power\": " << result.power << "," << endl;
     output << "\t\"time\": " << result.time << "," << endl;
-    output << "\t\"gflops\": " << result.gflops << "," << endl;
-    output << "\t\"time_std\": " << result.time_std << "," << endl;
-    output << "\t\"gflops_std\": " << result.gflops_std << endl;
+    output << "\t\"gflops\": " << result.gflops << endl;
     output << "}" << endl;
     output.close();
 

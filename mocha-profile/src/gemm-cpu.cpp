@@ -27,10 +27,12 @@ public:
     matrix_C = C;
   }
   
-  static void run() {
-    caffe::caffe_cpu_gemm<T>(CblasNoTrans, CblasTrans, 
-        size_a, size_c, size_b,
-        1.0, matrix_A, matrix_B, 0., matrix_C);
+  static void run(int num_iter = 1) {
+    for(int i = 0; i < num_iter; i++) {
+      caffe::caffe_cpu_gemm<T>(CblasNoTrans, CblasTrans, 
+          size_a, size_c, size_b,
+          1.0, matrix_A, matrix_B, 0., matrix_C);
+    }
   }
 
   static void cleanup() {
