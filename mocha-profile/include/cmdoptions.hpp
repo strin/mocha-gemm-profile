@@ -13,6 +13,7 @@ public:
     // matrix A, B, C have sizes sa, sb, sc.
     CmdOption<size_t> sa, sb, sc;
     CmdOption<int> iterations;
+    CmdOption<float> sparsity;
 
     CmdOption<string> arithmetic;
       CmdEnum<string> arithmetic_float;

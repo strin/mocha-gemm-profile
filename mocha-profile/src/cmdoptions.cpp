@@ -37,6 +37,14 @@ CmdParserMochaGEMM::CmdParserMochaGEMM (int argc, const char** argv) :
         "#column of matrix B",
         1024
     ),
+    sparsity(
+        *this,
+        's',
+        "sparsity",
+        "<float>",
+        "sparsity of matrix C",
+        0.15
+    ),
     iterations(
         *this,
         'i',

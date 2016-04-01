@@ -2,8 +2,10 @@
 #include <iostream>
 #include <ctime>
 #include <limits>
+#include <vector>
 #include <cmath>
 #include <memory>
+#include <random>
 #include <fstream>
 #include <unistd.h>
 
@@ -19,6 +21,7 @@ std::shared_ptr<CmdParserMochaGEMM> cmdparser;
 int clGlobalSize = 1024, clLocalSize = 16;
 
 size_t size_a, size_b, size_c;
+float sparsity = 0;
 
 // import modules to be profiled.
 // modules have access to our global variables.
@@ -125,6 +128,25 @@ std::tuple<T*, T*, T*> make_matrix(size_t size_a, size_t size_b, size_t size_c) 
   return std::make_tuple(A, B, C);
 }
 
+
+vector<pair<int, int> >* make_mask(size_t size_a, size_t size_c, double sparsity) {
+  std::mt19937_64 rng;  
+  std::uniform_real_distribution<double> unif(0, 1);
+
+  auto* mask = new vector<pair<int, int> >();
+
+  for(size_t i = 0; i < size_a; i++) {
+    for(size_t j = 0; j < size_c; j++) {
+      if(unif(rng) < sparsity) {
+        mask->push_back(make_pair(i, j));
+      }
+    }
+  }
+  
+  return mask;
+}
+
+
 struct BenchmarkResult {
   double time;
   double gflops;
@@ -176,13 +198,25 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
     // Here we start measuring host time for kernel execution
     double start, end, time;
     auto ABC = make_matrix<T>(size_a, size_b, size_c);
+    auto mask_vec = make_mask(size_a, size_c, sparsity);
+    
+    int maskN = mask_vec->size();
+    cout << "mask len " << mask_vec->size() << endl;
+
+    int* mask = new int[maskN * 2];
+
+    for(int i = 0; i < maskN; i++) {
+      mask[i * 2] = (*mask_vec)[i].first;
+      mask[i * 2 + 1] = (*mask_vec)[i].second;
+    }
+
     T* matrix_A = get<0>(ABC);
     T* matrix_B = get<1>(ABC);
     T* matrix_C = get<2>(ABC);
 
     // load matrix onto device memory.
     start = time_stamp();
-    loadMatrix(matrix_A, matrix_B, matrix_C);
+    loadMatrix(matrix_A, matrix_B, matrix_C, mask, maskN);
     end = time_stamp();
     time = (end - start) / num_iter;
     cout << "[Host] load matrix: " << time << " sec.\n";
@@ -236,6 +270,9 @@ BenchmarkResult test(size_t size_a, size_t size_b, size_t size_c,
     delete[] matrix_A;
     delete[] matrix_B;
     delete[] matrix_C;
+
+    delete mask_vec;
+    delete[] mask;
 
     total_end = time_stamp();
     total_time = total_end - total_start;
@@ -295,23 +332,27 @@ BenchmarkResult testGEMMGPU(size_t size_a, size_t size_b, size_t size_c) {
 
 template <typename T>
 BenchmarkResult testGEMMCPU(size_t size_a, size_t size_b, size_t size_c) {
+  /*
   return test<T>(size_a, size_b, size_c, 
             Mocha::GEMM_CPU<T>::setup,
             Mocha::GEMM_CPU<T>::loadMatrix,
             Mocha::GEMM_CPU<T>::run,
             doNothing,
             Mocha::GEMM_CPU<T>::cleanup);
+    */
 }
 
 
 template <typename T>
 BenchmarkResult testGEMMViennaCL(size_t size_a, size_t size_b, size_t size_c) {
+  /*
   return test<T>(size_a, size_b, size_c, 
             Mocha::GEMM_VIENNACL<T>::setup,
             Mocha::GEMM_VIENNACL<T>::loadMatrix,
             Mocha::GEMM_VIENNACL<T>::run,
             Mocha::GEMM_VIENNACL<T>::loadResult,
             Mocha::GEMM_VIENNACL<T>::cleanup);
+   */
 }
 
 
@@ -345,6 +386,11 @@ int main(int argc, const char* argv[]) {
     
     cout << "[matrix size] " << size_a << " " 
       << size_b << " " << size_c << endl;
+
+
+    sparsity = cmdparser->sparsity.getValue();
+
+    cout << "[sparsity] " << sparsity << endl;
 
     // benchmark time and gflops. 
     BenchmarkResult result;

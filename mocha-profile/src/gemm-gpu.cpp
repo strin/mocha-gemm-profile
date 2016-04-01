@@ -10,8 +10,8 @@ class GEMM_GPU {
 public:
 
   static size_t size_a, size_b, size_c;  // size of the matrix.
-  static size_t global_size[2];
-  static size_t local_size[2];
+  static size_t global_size[1];
+  static size_t local_size[1];
   static cl_event event;
   static std::shared_ptr<OpenCLBasic> oclobjects;
   static std::shared_ptr<OpenCLProgramOneKernel> executable;
@@ -26,22 +26,15 @@ public:
     size_b = cmdparser->sb.getValue();
     size_c = cmdparser->sc.getValue();
 
-    local_size[0] = 16;
-    local_size[1] = 16;
+    local_size[0] = 256;
 
     if(cl_program == "blocking-2-v4") {
-      clkernel_path = "gemm-blocking-2x2-vload4.cl";
+      clkernel_path += "gemm-blocking-2x2-vload4.cl";
       // set kernel configurations.
-      global_size[0] = size_a / 2;
-      global_size[1] = size_c / 2;
     }else if(cl_program == "blocking-4-v4") {
-      clkernel_path = "gemm-blocking-4x4-vload4.cl";
-      global_size[0] = size_a / 4;
-      global_size[1] = size_c / 4;
+      clkernel_path += "gemm-blocking-4x4-vload4.cl";
     }else if(cl_program == "noblock-v8") {
-      clkernel_path = "gemm-noblock-vload8.cl";
-      global_size[0] = size_a;
-      global_size[1] = size_c;
+      clkernel_path += "gemm-noblock-vload8.cl";
     }
 
     cout << "[cl_program] " << clkernel_path << endl;
@@ -85,9 +78,11 @@ public:
   static OpenCLDeviceAndHostMemory<T> matrix_A;
   static OpenCLDeviceAndHostMemory<T> matrix_B;
   static OpenCLDeviceAndHostMemory<T> matrix_C;
+  static OpenCLDeviceAndHostMemory<int> matrix_mask;
+  static int matrix_maskN;
   static cl_int err; // OpenCL error code
 
-  static void loadMatrix(T* A, T* B, T* C) {
+  static void loadMatrix(T* A, T* B, T* C, int* mask, int maskN) {
     matrix_A.host = A;
     matrix_B.host = (T*) new char[size_b * size_c * sizeof(T)];
     // transpose the matrix.
@@ -97,6 +92,10 @@ public:
       }
     }
     matrix_C.host = C;
+
+    matrix_maskN = maskN;
+    matrix_mask.host = mask;
+    global_size[0] = (maskN + local_size[0] - 1) / local_size[0] * local_size[0];
 
     // load matrix into device memory.
 
@@ -127,6 +126,15 @@ public:
     );
     SAMPLE_CHECK_ERRORS(err);
 
+    matrix_mask.device = clCreateBuffer(
+        oclobjects->context,
+        CL_MEM_READ_ONLY | CL_MEM_USE_HOST_PTR,
+        matrix_maskN * 2 * sizeof(int),
+        matrix_mask.host,
+        &err
+    );
+    SAMPLE_CHECK_ERRORS(err);
+
     err = clSetKernelArg(executable->kernel, 0, sizeof(cl_mem), &matrix_A.device);
     SAMPLE_CHECK_ERRORS(err);
     err = clSetKernelArg(executable->kernel, 1, sizeof(cl_mem), &matrix_B.device);
@@ -139,6 +147,11 @@ public:
     SAMPLE_CHECK_ERRORS(err);
     err = clSetKernelArg(executable->kernel, 5, sizeof(cl_int), &size_c);
     SAMPLE_CHECK_ERRORS(err);
+    err = clSetKernelArg(executable->kernel, 6, sizeof(cl_mem), &matrix_mask.device);
+    SAMPLE_CHECK_ERRORS(err);
+    err = clSetKernelArg(executable->kernel, 7, sizeof(cl_int), &matrix_maskN);
+    SAMPLE_CHECK_ERRORS(err);
+
 
     err = clFinish(oclobjects->queue);
     SAMPLE_CHECK_ERRORS(err);
@@ -152,7 +165,7 @@ public:
       err = clEnqueueNDRangeKernel(
           oclobjects->queue,
           executable->kernel,
-          2,
+          1,
           0,
           global_size,
           local_size,
@@ -218,10 +231,13 @@ template <typename T>
 size_t GEMM_GPU<T>::size_c;  // size of the matrix.
 
 template <typename T>
-size_t GEMM_GPU<T>::global_size[2];
+int GEMM_GPU<T>::matrix_maskN; 
 
 template <typename T>
-size_t GEMM_GPU<T>::local_size[2];
+size_t GEMM_GPU<T>::global_size[1];
+
+template <typename T>
+size_t GEMM_GPU<T>::local_size[1];
 
 template <typename T>
 cl_event GEMM_GPU<T>::event;
@@ -240,6 +256,10 @@ OpenCLDeviceAndHostMemory<T> GEMM_GPU<T>::matrix_B;
 
 template <typename T>
 OpenCLDeviceAndHostMemory<T> GEMM_GPU<T>::matrix_C;
+
+template <typename T>
+OpenCLDeviceAndHostMemory<int> GEMM_GPU<T>::matrix_mask;
+
 
 template <typename T>
 cl_int GEMM_GPU<T>::err; // OpenCL error code

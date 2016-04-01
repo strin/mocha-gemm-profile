@@ -11,11 +11,15 @@ __kernel void gemm (
     __global T * restrict C,
     int size_a, 
     int size_b, 
-    int size_c
+    int size_c,
+    __global int* mask, 
+    int maskN
 )
 {
-    const int i = get_global_id(0);
-    const int j = get_global_id(1);
+    if(get_global_id(0) >= maskN) return;
+
+    const int i = mask[get_global_id(0) * 2];
+    const int j = mask[get_global_id(0) * 2 + 1];
 
     T8 sum = (T8)0.0f;
   
