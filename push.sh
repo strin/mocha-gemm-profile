@@ -5,7 +5,7 @@ else
   TEST_PATH=$2
 fi
 
-adb push mocha-profile/build/gemm $TEST_PATH
+adb push mocha-profile/build/gemm $TEST_PATH/gemm-sparse
 
 adb push clkernel/gemm-blocking-2x2-vload4.cl $TEST_PATH/clkernel/gemm-blocking-2x2-vload4.cl
 adb push clkernel/gemm-blocking-4x4-vload4.cl $TEST_PATH/clkernel/gemm-blocking-4x4-vload4.cl
